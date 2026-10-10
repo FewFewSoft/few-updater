@@ -1,0 +1,5 @@
+# few-vacations: generated files and local application data
+.venv/
+*.pyc
+__pycache__/
+.mypy_cache/
