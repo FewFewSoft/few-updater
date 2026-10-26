@@ -27,7 +27,7 @@ class HelpTests(unittest.TestCase):
     def test_main_help(self):
         text = self.help_text()
         for expected in ('uv and npm', 'upgrade', 'release', 'automatically commit',
-                         'Confirm a patch bump', 'atomically'):
+                         'Confirm a version bump', 'atomically'):
             self.assertIn(expected, text)
 
     def test_common_requirements(self):
@@ -53,7 +53,7 @@ class HelpTests(unittest.TestCase):
 
     def test_release_help(self):
         text = self.help_text('release')
-        for expected in ('next patch version', 'explicit user confirmation once (default: no)',
+        for expected in ('bump patch by default', 'explicit user confirmation once (default: no)',
                          'uv version --bump patch', 'npm version patch --no-git-tag-version',
                          'build: bump version', 'annotated Git tag X.Y.Z (no v prefix)',
                          'git push --atomic origin main X.Y.Z',

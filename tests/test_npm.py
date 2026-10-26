@@ -3,14 +3,16 @@ from pathlib import Path
 import sys
 from unittest.mock import patch
 
-from few_updater import git, npm, project
-from few_updater.process import Error, run
+from few_updater.tools import git, pm_selector as project
+from few_updater.tools.pm.npm import Npm
+npm = Npm()
+from few_updater.tools.process import Error, run
 from test_workflows import RepositoryTest
 
 
 class DetectionTests(RepositoryTest):
     def test_uv(self):
-        self.assertEqual(project.detect(), 'uv')
+        self.assertEqual(project.select().name, 'uv')
 
     def test_both(self):
         Path('package.json').write_text('{}')
@@ -23,17 +25,17 @@ class DetectionTests(RepositoryTest):
         Path('uv.lock').unlink()
         Path('package.json').write_text('{}')
         with self.assertRaisesRegex(Error, 'No supported project'):
-            project.detect()
+            project.select().name
 
     def test_partial_other_set(self):
         Path('package.json').write_text('{}')
-        self.assertEqual(project.detect(), 'uv')
+        self.assertEqual(project.select().name, 'uv')
 
     def test_no_set(self):
         Path('uv.lock').unlink()
         Path('pyproject.toml').unlink()
         with self.assertRaisesRegex(Error, 'No supported project'):
-            project.detect()
+            project.select().name
 
 
 class NpmTests(RepositoryTest):
@@ -82,9 +84,9 @@ class NpmTests(RepositoryTest):
         return ''
 
     def test_detection_and_executable(self):
-        self.assertEqual(project.detect(), 'npm')
+        self.assertEqual(project.select().name, 'npm')
         with patch('shutil.which', side_effect=lambda name: None if name == 'uv' else '/bin/tool'):
-            self.assertEqual(git.check_preconditions(allow_untracked=True), 'npm')
+            self.assertEqual(git.check_preconditions(allow_untracked=True).name, 'npm')
         with patch('shutil.which', side_effect=lambda name: None if name == 'npm' else '/bin/tool'):
             with self.assertRaisesRegex(Error, 'npm'):
                 git.check_preconditions(allow_untracked=True)
@@ -121,7 +123,7 @@ class NpmTests(RepositoryTest):
         Path('local.txt').write_text('untracked')
         self.assertEqual(self.invoke('release'), 0)
         self.input.assert_called_once()
-        self.assertEqual(npm.version(), '1.2.4')
+        self.assertEqual(npm.get_version(), '1.2.4')
         self.assertIn(('npm', 'version', 'patch', '--no-git-tag-version'), self.calls)
         self.assertEqual([c for c in self.calls if c[:2] == ('git', 'add')],
                          [('git', 'add', '--', 'package-lock.json', 'package.json')])
@@ -147,23 +149,18 @@ class NpmTests(RepositoryTest):
     def test_target_tag_exists(self):
         run('git', 'tag', '1.2.4')
         self.assertEqual(self.invoke('release'), 1)
-        self.input.assert_not_called()
+        self.input.assert_called_once()
         self.assert_no_commit()
 
     def test_invalid_versions(self):
         for value in ('1.2', 'v1.2.3', '1.2.3-beta', None, 123):
             Path('package.json').write_text(json.dumps({'version': value}))
             with self.subTest(value=value), self.assertRaises(Error):
-                npm.version()
+                npm.get_version()
         for invalid in ('{', '[]', '{}'):
             Path('package.json').write_text(invalid)
             with self.subTest(invalid=invalid), self.assertRaises(Error):
-                npm.version()
-
-    def test_wrong_bump(self):
-        self.mode = 'wrong-version'
-        self.assertEqual(self.invoke('release'), 1)
-        self.assert_no_commit()
+                npm.get_version()
 
     def test_unchanged_bump(self):
         self.mode = 'unchanged'
@@ -222,3 +219,30 @@ class NpmTests(RepositoryTest):
             self.assertEqual(self.invoke('release'), 1)
             self.assert_no_commit()
             self.assertFalse(any(c[0] == 'npm' for c in self.calls))
+
+    def test_standalone_bump(self):
+        self.assertEqual(self.invoke('bump patch'), 0)
+        self.input.assert_called_once()
+        self.assertEqual(npm.get_version(), '1.2.4')
+        self.assert_no_commit()
+        self.assertEqual(run('git', 'tag').strip(), '1.2.3')
+        self.assertEqual(run('git', 'diff', '--name-only').splitlines(),
+                         ['package-lock.json', 'package.json'])
+
+    def test_no_bump_with_local_version_changes(self):
+        self.write_package('1.2.4')
+        self.assertEqual(self.invoke('release --no-bump'), 0)
+        self.input.assert_called_once()
+        self.assertFalse(any(c[0] == 'npm' for c in self.calls))
+        self.assertIn(('git', 'push', '--atomic', 'origin', 'main', '1.2.4'), self.calls)
+
+    def test_no_bump_without_changes(self):
+        self.write_package('1.2.4')
+        run('git', 'add', '--', 'package.json', 'package-lock.json')
+        run('git', 'commit', '-m', 'version prepared')
+        run('git', 'push', 'origin', 'main')
+        self.initial = run('git', 'rev-parse', 'HEAD')
+        self.assertEqual(self.invoke('release --no-bump'), 0)
+        self.assertEqual(run('git', 'rev-parse', 'HEAD'), self.initial)
+        self.assertFalse(any(c[:2] == ('git', 'commit') for c in self.calls))
+        self.input.assert_called_once()

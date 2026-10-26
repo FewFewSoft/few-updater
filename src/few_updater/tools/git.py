@@ -5,12 +5,12 @@ import re
 import shutil
 
 from .process import Error, run
-from . import project
+from .pm_selector import select
+from .pm.base import VERSION, PackageManager
 
-VERSION = r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
 
-
-def check_preconditions(*, allow_untracked: bool = False) -> str:
+def check_preconditions(*, allow_untracked: bool = False,
+                        allow_version_changes: bool = False) -> PackageManager:
     if shutil.which("git") is None:
         raise Error("Required executable not found: git")
     root = run("git", "rev-parse", "--show-toplevel").strip()
@@ -18,12 +18,14 @@ def check_preconditions(*, allow_untracked: bool = False) -> str:
         raise Error("Run few-updater from the Git repository root.")
     if run("git", "symbolic-ref", "--short", "HEAD").strip() != "main":
         raise Error("Current branch must be main.")
+    manager = select()
     untracked = "no" if allow_untracked else "all"
-    if run("git", "status", "--porcelain", f"--untracked-files={untracked}"):
+    if allow_version_changes:
+        changed_files(manager.release_files, allow_untracked=allow_untracked)
+    elif run("git", "status", "--porcelain", f"--untracked-files={untracked}"):
         raise Error("Git index and working tree must be clean.")
-    manager = project.detect()
-    if shutil.which(manager) is None:
-        raise Error(f"Required executable not found: {manager}")
+    if shutil.which(manager.name) is None:
+        raise Error(f"Required executable not found: {manager.name}")
     run("git", "remote", "get-url", "origin")
     run("git", "fetch", "origin")
     if not run("git", "ls-remote", "--heads", "origin", "refs/heads/main").strip():

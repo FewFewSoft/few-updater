@@ -1,14 +1,39 @@
 # few-updater
 
-A minimal CLI for dependency updates and patch releases, supporting Python projects with **uv** and Node.js projects with **npm**.
+A lightweight CLI to manage common maintenance and release operations consistently
+across projects using different package managers, such as **uv** and **npm**.
 
-Automates dependency updates, version bumps, Git commits, and pushes while keeping the workflow predictable.
+```mermaid
+flowchart TD
+    A["few-updater"]
 
-Python ≥ 3.11 · Standard library only · Interactive releases
+    A --> U1
+    A --> V1
+    A --> R1
+
+    subgraph U["upgrade"]
+        direction TB
+        U1["Upgrade deps"] --> U2["Commit"] --> U3["Push"]
+    end
+
+    subgraph V["bump"]
+        direction TB
+        V1["Bump version"]
+    end
+
+    subgraph R["release"]
+        direction TB
+        R1["Bump version"] --> R2["Commit"] --> R3["Tag"] --> R4["Atomic push"]
+    end
+
+    style U stroke-dasharray: 5 5
+    style V stroke-dasharray: 5 5
+    style R stroke-dasharray: 5 5
+```
 
 ## Installation
 
-Requires Git, [uv](https://docs.astral.sh/uv/), and npm for Node.js projects.
+Requires Git and the selected package manager (uv or npm).
 
 ```bash
 uv tool install .
@@ -16,49 +41,25 @@ uv tool install .
 
 ## Usage
 
-Run from the root of a Git repository on `main`.
+Run in a terminal at the Git repository root, on `main`.
 
 ```bash
 few-updater upgrade
+few-updater bump major|minor|patch
 few-updater release
+few-updater release --bump minor
+few-updater release --no-bump
 ```
 
-### Upgrade
+- `upgrade`: updates dependencies within existing constraints, then automatically
+  commits and pushes changed dependency files without confirmation.
+- `bump`: confirms once (default no) and leaves the native version bump local.
+- `release`: confirms once (default no), bumps patch by default, commits changed
+  version files, and atomically pushes `main` with an annotated version tag.
+  `--bump` selects the increment; `--no-bump` publishes the declared version.
+  An already released HEAD exits successfully without confirmation, even with
+  local version changes.
 
-Updates dependencies within the project's existing version constraints:
+Versioning is delegated to uv/npm. Releases publish Git refs, not packages.
 
-- **uv:** `uv lock --upgrade`
-- **npm:** `npm update`
-
-If dependency files change, automatically commits them as `build: update dependencies` and pushes to `origin/main`.
-
-No confirmation required.
-
-### Release
-
-Creates the next patch release (`1.2.3 → 1.2.4`):
-
-- Bumps the project version using uv or npm.
-- Commits the version changes as `build: bump version`.
-- Creates an annotated Git tag (`X.Y.Z`).
-- Atomically pushes the commit and tag to `origin`.
-
-Requires confirmation before making changes.
-
-## Requirements & limitations
-
-- Automatically detects uv or npm from the project files.
-- Requires a clean Git index and tracked working tree; untracked files are allowed.
-- Requires `main` to match `origin/main`.
-- Requires an existing annotated release tag for `release`.
-- Supports single-project repositories; workspaces are not supported.
-- Does not automatically pull, merge, rebase, or roll back changes.
-- Does not run application tests or publish packages.
-
-See [SPEC.md](SPEC.md) for detailed behavior, safety checks, and failure handling.
-
-## Development
-
-```bash
-uv run python -m unittest discover -s tests
-```
+For detailed behavior and constraints, see the [specifications](specs/).

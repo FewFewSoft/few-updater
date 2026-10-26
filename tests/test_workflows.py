@@ -8,8 +8,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from few_updater import cli, git, uv
-from few_updater.process import Error, run
+from few_updater import cli
+from few_updater.tools import git
+from few_updater.tools.pm import uv, npm
+from few_updater.workflows import upgrade, release
+from few_updater.tools.process import Error, run
 
 
 class RepositoryTest(unittest.TestCase):
@@ -55,6 +58,8 @@ class RepositoryTest(unittest.TestCase):
             ('uv', 'version', '--bump', 'patch'),
             ('git', 'commit', '-m', 'build: bump version'),
             ('git', 'push', '--atomic', 'origin', 'main', '1.2.4'),
+            ('git', 'push', '--atomic', 'origin', 'main', '1.3.0'),
+            ('git', 'push', '--atomic', 'origin', 'main', '2.0.0'),
         }
         self.assertEqual(capture_output, args not in native_commands)
         if args == ('git', 'commit', '-m', 'build: update dependencies'):
@@ -98,7 +103,7 @@ class RepositoryTest(unittest.TestCase):
     def invoke(self, command, answer='y'):
         output = io.StringIO()
         with contextlib.ExitStack() as stack:
-            for module in (cli, git, uv):
+            for module in (git, uv, npm, upgrade, release):
                 stack.enter_context(patch.object(module, 'run', side_effect=self.command))
             stack.enter_context(patch('shutil.which', return_value='/test/executable'))
             stack.enter_context(contextlib.redirect_stdout(output))
@@ -106,7 +111,7 @@ class RepositoryTest(unittest.TestCase):
             stack.enter_context(patch.object(output, 'isatty', return_value=True))
             stack.enter_context(patch('sys.stdin.isatty', return_value=True))
             self.input = stack.enter_context(patch('builtins.input', return_value=answer))
-            result = cli.main([command])
+            result = cli.main(command.split())
         self.output = output.getvalue()
         return result
 
@@ -362,13 +367,6 @@ class ReleaseTests(RepositoryTest):
         self.assertEqual(set(run('git', 'diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD').splitlines()), {'pyproject.toml', 'uv.lock'})
         self.assertEqual(run('git', 'status', '--porcelain'), '')
 
-    def test_patch(self):
-        for current, expected in [('0.1.0', '0.1.1'), ('1.2.9', '1.2.10'), ('2.0.99', '2.0.100')]:
-            self.assertEqual(uv.next_patch(current), expected)
-        for invalid in ('1.2', 'v1.2.3', '1.2.3rc1', '1.2.03'):
-            with self.assertRaises(Error):
-                uv.next_patch(invalid)
-
     def test_refusal(self):
         self.new_commit()
         Path('local.txt').write_text('keep locally')
@@ -383,7 +381,7 @@ class ReleaseTests(RepositoryTest):
         self.new_commit()
         run('git', 'tag', '1.2.4')
         self.assertEqual(self.invoke('release'), 1)
-        self.input.assert_not_called()
+        self.input.assert_called_once()
         self.assert_no_commit()
 
     def test_existing_remote_tag(self):
@@ -434,11 +432,13 @@ class ReleaseTests(RepositoryTest):
         self.assertNotIn('1.2.4', run('git', '--git-dir=' + str(self.remote), 'tag'))
         self.assertIn('git push --atomic origin main 1.2.4', self.output)
 
-    def test_wrong_bump(self):
+    def test_native_version_is_used(self):
         self.new_commit()
-        self.uv_mode = 'wrong-version'
-        self.assertEqual(self.invoke('release'), 1)
-        self.assert_no_commit()
+        self.uv_mode = "wrong-version"
+        # The package manager owns version semantics.
+        self.fail = ("git", "tag", "-a")
+        self.assertEqual(self.invoke("release"), 1)
+        self.assertIn(("git", "tag", "-a", "1.2.5", "-m", "1.2.5"), self.calls)
 
     def test_unexpected_files(self):
         self.new_commit()
@@ -455,7 +455,7 @@ class CliTests(unittest.TestCase):
                 check.assert_not_called()
 
     def test_help_without_tty(self):
-        for args in (['--help'], ['upgrade', '--help'], ['release', '--help']):
+        for args in (['--help'], ['upgrade', '--help'], ['release', '--help'], ['bump', '--help']):
             with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as error:
                 cli.main(args)
             self.assertEqual(error.exception.code, 0)

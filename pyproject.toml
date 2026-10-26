@@ -1,8 +1,9 @@
 [project]
 name = "few-updater"
 version = "1.0.0"
-description = "Interactive dependency upgrades and patch releases for uv and npm projects"
+description = "Interactive dependency upgrades, version bumps and releases for uv and npm projects"
 readme = "README.md"
+license = "Unlicense"
 authors = [
     { name = "SuperMiaw", email = "1243988+SuperMiaw@users.noreply.github.com" }
 ]
