@@ -1,6 +1,6 @@
 [project]
 name = "few-updater"
-version = "1.0.0"
+version = "2.0.0"
 description = "Interactive dependency upgrades, version bumps and releases for uv and npm projects"
 readme = "README.md"
 license = "Unlicense"
