@@ -17,13 +17,14 @@ def confirm(prompt: str) -> bool:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Update dependencies and prepare releases for uv and npm projects.",
+        description="Update dependencies and prepare releases for uv, npm and bun projects.",
         epilog="Run a command with --help for its workflow and Git requirements.",
     )
     requirements = (
         "Detection: pyproject.toml + uv.lock selects uv;\n"
         "package.json + package-lock.json selects npm.\n"
-        "Both complete sets, or neither, are an error.\n\n"
+        "bun: package.json + bun.lock/bun.lockb or packageManager bun@VERSION.\n"
+        "bun takes priority over npm; uv plus JavaScript, or no match, is an error.\n\n"
         "Requirements: run in an interactive terminal (TTY) at the Git repository\n"
         "root, on main. Git and the detected package manager must be available.\n"
         "The index and tracked working-tree files must be clean. Untracked files\n"
@@ -38,10 +39,10 @@ def main(argv: list[str] | None = None) -> int:
         help="Update dependencies, then automatically commit and push changes.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=(
-            "Automatically detect uv or npm and update dependencies within existing\n"
-            "version constraints using uv lock --upgrade or npm update.\n\n"
+            "Automatically detect uv, npm or bun and update dependencies within existing\n"
+            "version constraints using uv lock --upgrade, npm update or bun update.\n\n"
             "If dependency files change, explicitly stage only uv.lock (uv), or\n"
-            "modified package.json/package-lock.json files (npm), commit with\n"
+            "modified package.json/package-lock.json (npm) or package.json/bun.lock/bun.lockb (bun), commit with\n"
             "'build: update dependencies', and run git push origin main.\n"
             "No changes means success without a commit or push. No confirmation\n"
             "required and no diff displayed. Native command output is preserved."
@@ -53,19 +54,20 @@ def main(argv: list[str] | None = None) -> int:
         help="Confirm a version bump, commit, tag, and push atomically.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=(
-            "Automatically detect uv or npm; bump patch by default, or select a level.\n"
+            "Automatically detect uv, npm or bun; bump patch by default, or select a level.\n"
             "Require an existing annotated release tag and a strict X.Y.Z version.\n"
             "If HEAD is already released, exit successfully without changes.\n\n"
             "After safety checks, ask for explicit user\n"
             "confirmation once (default: no), before any version changes. Run\n"
             "uv version --bump patch or npm version patch --no-git-tag-version.\n"
+            "bun uses bun pm version patch --no-git-tag-version then bun install --lockfile-only.\n"
             "Read the resulting version and check its tag is unused. Commit changed\n"
             "files with "
             "'build: bump version'. Create an annotated Git tag X.Y.Z (no v prefix),\n"
             "with X.Y.Z as its message, then atomically push the branch and tag:\n"
             "git push --atomic origin main X.Y.Z\n\n"
             "Version files: pyproject.toml/uv.lock (uv), or\n"
-            "package.json/package-lock.json (npm). Native bump, commit, and push\n"
+            "package.json/package-lock.json (npm), package.json/bun.lock/bun.lockb (bun). Native bump, commit, and push\n"
             "output is preserved. Declining confirmation makes no changes."
         ),
         epilog=requirements,
@@ -76,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
     options.add_argument("--no-bump", action="store_true",
                          help="Publish the currently declared version without incrementing.")
     bump_parser = commands.add_parser("bump", description=(
-        "Automatically detect uv or npm. Confirm once, then bump only local version files; "
+        "Automatically detect uv, npm or bun. Confirm once, then bump only local version files; "
         "no commit, tag or push."), epilog=requirements,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         help="Confirm a local major, minor or patch version change.")

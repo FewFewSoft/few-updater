@@ -8,7 +8,8 @@ Preflight itself fetches from origin, including when confirmation is later decli
 1. Require Git, the repository root as cwd, and branch `main`.
 2. Evaluate every manager candidate. Select exactly one complete file set:
    uv: `pyproject.toml` + `uv.lock`; npm: `package.json` + `package-lock.json`.
-   Zero or multiple matches produce clear errors. An incomplete other set does
+   bun: `package.json` plus `bun.lock`, `bun.lockb`, or `packageManager: bun@VERSION`.
+   bun suppresses the npm match only. Zero or multiple remaining matches produce clear errors. An incomplete other set does
    not interfere. Never select the first match without checking others.
 3. Require a clean index and tracked working tree. Untracked files are ignored.
    `release --no-bump` also accepts changes confined to its manager's version
@@ -33,7 +34,7 @@ back. Preserve partial manager changes, staged files, and local commits/tags.
 Tag creation failure never pushes; failed atomic push leaves local commits/tags
 intact.
 
-Hooks and npm lifecycle scripts run normally. `--no-git-tag-version` disables
+Hooks and native npm/bun lifecycle scripts run normally. `--no-git-tag-version` disables
 npm's own commit/tag behavior, not arbitrary script commands. Unexpected tracked
 changes are rejected and preserved. Do not run application tests, generate
 changelogs, call GitHub APIs, or publish to registries.

@@ -1,4 +1,4 @@
-"""Small contract for the two supported package managers."""
+"""Small contract for the supported package managers."""
 
 from abc import ABC, abstractmethod
 import re

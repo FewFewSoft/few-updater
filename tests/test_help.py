@@ -26,7 +26,7 @@ class HelpTests(unittest.TestCase):
 
     def test_main_help(self):
         text = self.help_text()
-        for expected in ('uv and npm', 'upgrade', 'release', 'automatically commit',
+        for expected in ('uv, npm and bun', 'upgrade', 'release', 'automatically commit',
                          'Confirm a version bump', 'atomically'):
             self.assertIn(expected, text)
 
@@ -34,8 +34,8 @@ class HelpTests(unittest.TestCase):
         for command in ('upgrade', 'release'):
             with self.subTest(command=command):
                 text = self.help_text(command)
-                for expected in ('Automatically detect uv or npm', 'pyproject.toml + uv.lock',
-                                 'package.json + package-lock.json', 'Both complete sets',
+                for expected in ('Automatically detect uv, npm or bun', 'pyproject.toml + uv.lock',
+                                 'package.json + package-lock.json', 'bun takes priority over npm',
                                  'interactive terminal (TTY)', 'repository root, on main',
                                  'index and tracked working-tree files must be clean',
                                  'Untracked files are allowed and never staged',

@@ -1,7 +1,9 @@
 # few-updater
 
 A lightweight CLI to manage common maintenance and release operations consistently
-across projects using different package managers, such as **uv** and **npm**.
+across projects using different package managers.
+
+Supported: **uv**, **npm**, **bun**.
 
 ```mermaid
 flowchart TD
@@ -33,7 +35,7 @@ flowchart TD
 
 ## Installation
 
-Requires Git and the selected package manager (uv or npm).
+Requires Git and the selected package manager (uv, npm or bun).
 
 ```bash
 uv tool install .
@@ -60,6 +62,8 @@ few-updater release --no-bump
   An already released HEAD exits successfully without confirmation, even with
   local version changes.
 
-Versioning is delegated to uv/npm. Releases publish Git refs, not packages.
+Versioning is delegated to uv/npm/bun. Releases publish Git refs, not packages.
 
 For detailed behavior and constraints, see the [specifications](specs/).
+
+bun takes priority over npm when both are detected.

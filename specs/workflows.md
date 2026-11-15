@@ -84,5 +84,6 @@ PYTHONPATH=src python3 -m unittest discover -s tests
 
 The fixtures isolate Git identity and global/system configuration. Git init,
 commits and pushes inside temporary test fixtures are expected; they must never
-target the source workspace or a real remote. Simulation verifies command
-contracts and sequencing, not compatibility with every installed uv/npm version.
+target the source workspace or a real remote. Simulated managers verify command contracts
+and sequencing. See [manager constraints](cli-and-managers.md) for native
+commands and lockfile behavior.
